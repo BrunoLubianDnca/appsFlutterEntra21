@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:excel/excel.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 void main() => runApp(TaskManagerApp());
 
@@ -10,10 +13,8 @@ class Task {
   bool isDone;
   final List<ChecklistItem> checklist;
   final List<String> notes;
-  String statusInstagram;
-  String statusFacebook;
-  String statusWhatsappTalk;
-  String filial; // Adicionado o campo de filial
+  String instagramStatus;
+  String facebookStatus;
 
   Task({
     required this.title,
@@ -22,10 +23,8 @@ class Task {
     this.isDone = false,
     this.checklist = const [],
     this.notes = const [],
-    this.statusInstagram = 'Inativo',
-    this.statusFacebook = 'Inativo',
-    this.statusWhatsappTalk = 'Inativo',
-    required this.filial,
+    this.instagramStatus = 'Inativo',
+    this.facebookStatus = 'Inativo',
   });
 }
 
@@ -40,7 +39,7 @@ class TaskManagerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gerenciador de Tarefas',
+      title: 'Task Manager App',
       home: TaskManagerHomePage(),
     );
   }
@@ -52,127 +51,98 @@ class TaskManagerHomePage extends StatefulWidget {
 }
 
 class _TaskManagerHomePageState extends State<TaskManagerHomePage> {
-  int _currentOfferIndex = 0;
-
-  List<Map<String, dynamic>> offerDates = [
-    {'description': 'Segunda da Limpeza e da Higiene', 'date': DateTime(2023, 10, 30)},
-    {'description': 'Terça do Hortifrúti', 'date': DateTime(2023, 10, 31)},
-    {'description': 'Quarta do Hortifrúti', 'date': DateTime(2023, 11, 1)},
-    {'description': 'Ofertas da Quinta Frios e Frango', 'date': DateTime(2023, 11, 2)},
-    {'description': 'Sexta das Carnes ', 'date': DateTime(2023, 11, 3)},
-    {'description': 'Fim De Semana Especial', 'date': DateTime(2023, 11, 4)},
-    {'description': 'Fim De Semana Especial', 'date': DateTime(2023, 11, 5)},
-  ];
-
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   DateTime? _selectedDate;
-  String _selectedStatusInstagram = 'Inativo';
-  String _selectedStatusFacebook = 'Inativo';
-  String _selectedStatusWhatsappTalk = 'Inativo';
-  String _selectedFilial = 'BLUMENAU'; // Inicialmente definido para a filial "BLUMENAU"
-
+  String _selectedInstagramStatus = 'Inativo';
+  String _selectedFacebookStatus = 'Inativo';
   List<Task> _tasks = [];
 
   void _addTask() {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _tasks.add(Task(
-          title: offerDates[_currentOfferIndex]['description'],
+          title: _titleController.text,
           description: _descriptionController.text,
           dueDate: _selectedDate!,
-          statusInstagram: _selectedStatusInstagram,
-          statusFacebook: _selectedStatusFacebook,
-          statusWhatsappTalk: _selectedStatusWhatsappTalk,
-          filial: _selectedFilial, // Define a filial selecionada
+          instagramStatus: _selectedInstagramStatus,
+          facebookStatus: _selectedFacebookStatus,
         ));
-
+        _titleController.clear();
         _descriptionController.clear();
         _selectedDate = null;
-
-        // Avançar para a próxima oferta com base na data selecionada
-        if (_selectedDate != null) {
-          int selectedDayOfWeek = _selectedDate!.weekday;
-          if (selectedDayOfWeek >= DateTime.monday && selectedDayOfWeek <= DateTime.friday) {
-            _currentOfferIndex = selectedDayOfWeek - DateTime.monday;
-            _selectedStatusInstagram = 'Inativo';
-            _selectedStatusFacebook = 'Inativo';
-            _selectedStatusWhatsappTalk = 'Inativo';
-          }
-        }
+        _selectedInstagramStatus = 'Inativo';
+        _selectedFacebookStatus = 'Inativo';
+        _saveToExcel(_tasks);
       });
     }
   }
 
-  String? _validateDate(DateTime? date) {
-    if (date == null) {
-      return 'Selecione uma data';
+  Future<void> _saveToExcel(List<Task> tasks) async {
+    final excel = Excel.createExcel();
+    final sheet = excel['Sheet1'];
+
+    sheet.appendRow([
+      'Title',
+      'Description',
+      'Due Date',
+      'Status Instagram',
+      'Status Facebook',
+    ]);
+
+    for (var task in tasks) {
+      sheet.appendRow([
+        task.title,
+        task.description,
+        DateFormat('dd/MM/yyyy').format(task.dueDate),
+        task.instagramStatus,
+        task.facebookStatus,
+      ]);
     }
-    if (date.isBefore(DateTime.now())) {
-      return 'Selecione uma data futura';
-    }
-    return null;
+
+    final Directory appDocDir = await getApplicationDocumentsDirectory();
+    final String appDocPath = appDocDir.path;
+    final String excelFilePath = '$appDocPath/tasks.xlsx';
+
+    final file = File(excelFilePath);
+    await file.create(recursive: true);
+
+
+    print('Data saved to Excel file: $excelFilePath');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Center(child: Text('Controle De Postagem Mkt')),backgroundColor: Colors.green,
+        title: Text('Task Manager App'),
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Column(
-              children: [
-                Image.asset('assets/app.jpeg'),
-              ],
-            ) ,
             Form(
               key: _formKey,
               child: Column(
                 children: <Widget>[
-                  DropdownButtonFormField<String>(
-                    value: _selectedFilial,
+                  TextFormField(
+                    controller: _titleController,
                     decoration: InputDecoration(labelText: 'FILIAL:'),
-                    items: [
-                      'BLUMENAU',
-                      ' SUPER ÁGUA VERDE',
-                      ' SUPER GARCIA',
-                      ' SUPER GLÓRIA',
-                      ' SUPER ITOUPAVA NORTE',
-                      ' SUPER MAFISA',
-                      ' SUPER OMINO',
-                      ' SUPER VILA NOVA',
-                      ' SUPER CENTRO',
-                      ' SUPER NAÇÕES',
-                      'SUPER JARAGUÁ DO SUL',
-                      ' SUPER ÁGUA VERDE',
-                      ' SUPER BARRA',
-                      ' SUPER VILA NOVA',
-                      ' FRESH CENTRO',
-                      'ATACAREJO ILHA DA FIGUEIRA ',
-                      ' MINI GASPAR',
-                      ' SUPER IBIRAMA',
-                      ' ATACAREJO JOINVILLE',
-                      ' SUPER RODEIO',
-                      ' SUPER TIMBÓ',
-                    ].map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedFilial = newValue!;
-                      });
+                    validator: (value) {
+                      if (value!.isEmpty) {
+                        return 'O título é obrigatório';
+                      }
+                      return null;
                     },
                   ),
                   TextFormField(
-                    decoration: InputDecoration(labelText: 'Data de Postagem'),
+                    controller: _descriptionController,
+                    decoration: InputDecoration(labelText: 'Oferta do dia '),
+                  ),
+                  TextFormField(
+                    decoration: InputDecoration(labelText: 'Data De Postagem'),
                     readOnly: true,
                     controller: TextEditingController(
                       text: _selectedDate == null
@@ -182,99 +152,65 @@ class _TaskManagerHomePageState extends State<TaskManagerHomePage> {
                     onTap: () {
                       showDatePicker(
                         context: context,
-                        initialDate: _selectedDate ?? DateTime.now(),
+                        initialDate: DateTime.now(),
                         firstDate: DateTime.now(),
                         lastDate: DateTime(2101),
-                        initialDatePickerMode: DatePickerMode.day,
                       ).then((pickedDate) {
                         if (pickedDate != null) {
                           setState(() {
                             _selectedDate = pickedDate;
-                            // Avançar para a próxima oferta com base na data selecionada
-                            int selectedDayOfWeek = pickedDate.weekday;
-                            if (selectedDayOfWeek >= DateTime.monday && selectedDayOfWeek <= DateTime.sunday) {
-                              _currentOfferIndex = selectedDayOfWeek - DateTime.monday;
-                              _selectedStatusInstagram = 'Inativo';
-                              _selectedStatusFacebook = 'Inativo';
-                              _selectedStatusWhatsappTalk = 'Inativo';
-                            }
                           });
                         }
                       });
                     },
                   ),
                   DropdownButton<String>(
-                    value: _selectedStatusInstagram,
+                    value: _selectedInstagramStatus,
                     onChanged: (String? newValue) {
                       setState(() {
-                        _selectedStatusInstagram = newValue!;
+                        _selectedInstagramStatus = newValue!;
                       });
                     },
                     items: <String>['Postado', 'Inativo', 'Atrasado']
                         .map<DropdownMenuItem<String>>((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
-                        child: Row(
-                          children: [
-                            Text('Instagram: '),
-                            Text(value),
-                          ],
-                        ),
+                        child: Text(value),
                       );
                     }).toList(),
                   ),
                   DropdownButton<String>(
-                    value: _selectedStatusFacebook,
+                    value: _selectedFacebookStatus,
                     onChanged: (String? newValue) {
                       setState(() {
-                        _selectedStatusFacebook = newValue!;
+                        _selectedFacebookStatus = newValue!;
                       });
                     },
-                    items: <String>['Postado', 'Inativo', 'Atrasado']
+                    items: <String>[' Postado', 'Inativo', 'Atrasado']
                         .map<DropdownMenuItem<String>>((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
-                        child: Row(
-                          children: [
-                            Text('Facebook: '),
-                            Text(value),
-                          ],
-                        ),
+                        child: Text(value),
                       );
                     }).toList(),
                   ),
-                  DropdownButton<String>(
-                    value: _selectedStatusWhatsappTalk,
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedStatusWhatsappTalk = newValue!;
-                      });
-                    },
-                    items: <String>['Ativo', 'Inativo', 'Atrasado']
-                        .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Row(
-                          children: [
-                            Text('WhatsappTalk: '),
-                            Text(value),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-
                   SizedBox(height: 16.0),
                   ElevatedButton(
                     onPressed: _addTask,
-                    child: Text ('Adicionar Rotina'),
+                    child: Text('Adicionar Tarefa'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      _saveToExcel(_tasks);
+                    },
+                    child: Text('Salvar para Excel'),
                   ),
                 ],
               ),
             ),
             SizedBox(height: 16.0),
             Text(
-              'Lembretes:',
+              'Tarefas Futuras:',
               style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
             ),
             if (_tasks.isEmpty)
@@ -286,6 +222,7 @@ class _TaskManagerHomePageState extends State<TaskManagerHomePage> {
                   onDelete: () {
                     setState(() {
                       _tasks.remove(task);
+                      _saveToExcel(_tasks);
                     });
                   },
                 ),
@@ -341,41 +278,19 @@ class _TaskCardState extends State<TaskCard> {
               style: TextStyle(fontSize: 16.0),
             ),
             Text(
-              'Status Instagram: ${widget.task.statusInstagram}',
+              'Status Instagram: ${widget.task.instagramStatus}',
               style: TextStyle(
                 fontSize: 16.0,
-                color: _getStatusColor(widget.task.statusInstagram),
+                color: _getStatusColor(widget.task.instagramStatus),
               ),
             ),
             Text(
-              'Status Facebook: ${widget.task.statusFacebook}',
+              'Status Facebook: ${widget.task.facebookStatus}',
               style: TextStyle(
                 fontSize: 16.0,
-                color: _getStatusColor(widget.task.statusFacebook),
+                color: _getStatusColor(widget.task.facebookStatus),
               ),
             ),
-            Text(
-              'Status WhatsApp Talk: ${widget.task.statusWhatsappTalk}',
-              style: TextStyle(
-                fontSize: 16.0,
-                color: _getStatusColor(widget.task.statusWhatsappTalk),
-              ),
-            ),
-            Text(
-              'Filial: ${widget.task.filial}', // Adicionado campo de filial
-              style: TextStyle(fontSize: 16.0),
-            ),
-            SizedBox(height: 16.0),
-            if (widget.task.notes.isNotEmpty)
-              Text(
-                'Notas:',
-                style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
-              ),
-            for (String note in widget.task.notes)
-              Text(
-                '- $note',
-                style: TextStyle(fontSize: 16.0),
-              ),
             SizedBox(height: 16.0),
           ],
         ),
@@ -388,8 +303,6 @@ class _TaskCardState extends State<TaskCard> {
       return Colors.green;
     } else if (status == 'Atrasado') {
       return Colors.red;
-    } else if (status == 'Ativo') {
-      return Colors.blue;
     } else {
       return Colors.orange;
     }
